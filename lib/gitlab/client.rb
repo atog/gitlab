@@ -40,6 +40,7 @@ module Gitlab
     include Milestones
     include Namespaces
     include Notes
+    include Packages
     include PipelineSchedules
     include PipelineTriggers
     include Pipelines
@@ -49,6 +50,7 @@ module Gitlab
     include ProjectReleases
     include Projects
     include ProtectedTags
+    include RemoteMirrors
     include Repositories
     include RepositoryFiles
     include RepositorySubmodules
@@ -88,7 +90,7 @@ module Gitlab
     private
 
     def only_show_last_four_chars(token)
-      "#{'*' * (token.size - 4)}#{token[-4..-1]}"
+      "#{'*' * (token.size - 4)}#{token[-4..]}"
     end
   end
 end

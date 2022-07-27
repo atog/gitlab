@@ -6,8 +6,9 @@ require:
   - rubocop-rspec
 
 AllCops:
-  TargetRubyVersion: 2.5
+  TargetRubyVersion: 2.6
   NewCops: disable
+  SuggestExtensions: false
 
 Layout/LineLength:
   Max: 123
@@ -18,6 +19,7 @@ Layout/LineLength:
 Metrics/BlockLength:
   Exclude:
     - 'spec/**/*'
+    - 'gitlab.gemspec'
 
 Metrics/ParameterLists:
   MaxOptionalParameters: 4

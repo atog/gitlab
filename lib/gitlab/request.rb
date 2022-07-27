@@ -8,6 +8,7 @@ module Gitlab
   class Request
     include HTTParty
     format :json
+    maintain_method_across_redirects true
     headers 'Accept' => 'application/json', 'Content-Type' => 'application/x-www-form-urlencoded'
     parser(proc { |body, _| parse(body) })
 
@@ -48,14 +49,25 @@ module Gitlab
           params[:headers].merge!(authorization_header)
         end
 
-        validate self.class.send(method, endpoint + path, params)
+        retries_left = params[:ratelimit_retries] || 3
+        begin
+          response = self.class.send(method, endpoint + path, params)
+          validate response
+        rescue Gitlab::Error::TooManyRequests => e
+          retries_left -= 1
+          raise e if retries_left.zero?
+
+          wait_time = response.headers['Retry-After'] || 2
+          sleep(wait_time.to_i)
+          retry
+        end
       end
     end
 
     # Checks the response code for common errors.
     # Returns parsed response for successful requests.
     def validate(response)
-      error_klass = Error::STATUS_MAPPINGS[response.code]
+      error_klass = Error.klass(response)
       raise error_klass, response if error_klass
 
       parsed = response.parsed_response

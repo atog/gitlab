@@ -77,6 +77,18 @@ RSpec.describe Gitlab::Client do
     end
   end
 
+  describe '.create_merge_request_pipeline' do
+    before do
+      stub_post('/projects/3/merge_requests/2/pipelines', 'pipeline_create')
+    end
+
+    it 'returns information about created merge request pipeline' do
+      @pipeline = Gitlab.create_merge_request_pipeline(3, 2)
+      expect(@pipeline.yaml_errors).to be_nil
+      expect(@pipeline.status).to eq('pending')
+    end
+  end
+
   describe '.create_merge_request' do
     before do
       stub_post('/projects/3/merge_requests', 'merge_request')
@@ -373,6 +385,21 @@ RSpec.describe Gitlab::Client do
 
     it 'returns nothing' do
       expect(@note).to be_falsy
+    end
+  end
+
+  describe '.delete_merge_request' do
+    before do
+      stub_request(:delete, 'https://api.example.com/projects/3/merge_requests/2').to_return(body: '')
+      @merge_request = Gitlab.delete_merge_request(3, 2)
+    end
+
+    it 'deletes the correct resource' do
+      expect(a_delete('/projects/3/merge_requests/2')).to have_been_made
+    end
+
+    it 'returns nothing' do
+      expect(@merge_request).to be_falsy
     end
   end
 

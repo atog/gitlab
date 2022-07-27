@@ -114,4 +114,178 @@ RSpec.describe Gitlab::Request do
       expect(@request.send(:authorization_header)).to eq('Authorization' => 'Bearer 3225e2804d31fea13fc41fc83bffef00cfaedc463118646b154acc6f94747603')
     end
   end
+
+  describe 'errors' do
+    before do
+      @request.private_token = 'token'
+      @request.endpoint = 'https://example.com/api/v4'
+      @rpath = "#{@request.endpoint}/version"
+
+      allow(@request).to receive(:httparty)
+    end
+
+    it 'raises error for 5xx status code without special error class' do
+      stub_request(:get, @rpath).to_return(status: 599)
+
+      expect { @request.get('/version') }.to raise_error(Gitlab::Error::ResponseError)
+
+      expect(a_request(:get, @rpath)).to have_been_made
+    end
+
+    it 'raises error for 4xx status code without special error class' do
+      stub_request(:get, @rpath).to_return(status: 499)
+
+      expect { @request.get('/version') }.to raise_error(Gitlab::Error::ResponseError)
+
+      expect(a_request(:get, @rpath)).to have_been_made
+    end
+  end
+
+  describe 'ratelimiting' do
+    before do
+      @request.private_token = 'token'
+      @request.endpoint = 'https://example.com/api/v4'
+      @rpath = "#{@request.endpoint}/version"
+
+      allow(@request).to receive(:httparty)
+    end
+
+    it 'tries 3 times when ratelimited by default' do
+      stub_request(:get, @rpath)
+        .to_return(
+          status: 429,
+          headers: { 'Retry-After' => 1 }
+        )
+
+      expect do
+        @request.get('/version')
+      end.to raise_error(Gitlab::Error::TooManyRequests)
+
+      expect(a_request(:get, @rpath).with(headers: {
+        'PRIVATE_TOKEN' => 'token'
+      }.merge(described_class.headers))).to have_been_made.times(3)
+    end
+
+    it 'tries 4 times when ratelimited with option' do
+      stub_request(:get, @rpath)
+        .to_return(
+          status: 429,
+          headers: { 'Retry-After' => 1 }
+        )
+      expect do
+        @request.get('/version', { ratelimit_retries: 4 })
+      end.to raise_error(Gitlab::Error::TooManyRequests)
+
+      expect(a_request(:get, @rpath).with(headers: {
+        'PRIVATE_TOKEN' => 'token'
+      }.merge(described_class.headers))).to have_been_made.times(4)
+    end
+
+    it 'handles one retry then success' do
+      stub_request(:get, @rpath)
+        .to_return(
+          status: 429,
+          headers: { 'Retry-After' => 1 }
+        ).times(1).then
+        .to_return(
+          status: 200
+        ).times(1)
+
+      @request.get('/version')
+
+      expect(a_request(:get, @rpath).with(headers: {
+        'PRIVATE_TOKEN' => 'token'
+      }.merge(described_class.headers))).to have_been_made.times(2)
+    end
+
+    it 'survives a 429 with no Retry-After header' do
+      stub_request(:get, @rpath)
+        .to_return(
+          status: 429
+        )
+
+      expect do
+        @request.get('/version')
+      end.to raise_error(Gitlab::Error::TooManyRequests)
+
+      expect(a_request(:get, @rpath).with(headers: {
+        'PRIVATE_TOKEN' => 'token'
+      }.merge(described_class.headers))).to have_been_made.times(3)
+    end
+  end
+
+  describe 'redirection' do
+    it 'redirect GET' do
+      http_endpoint = 'http://example.com/api/v4'
+      https_endpoint = 'https://example.com:443/api/v4'
+      http_path = "#{http_endpoint}/version"
+      https_path = "#{https_endpoint}/version"
+      token = 'token'
+      @request.private_token = token
+      @request.endpoint = http_endpoint
+
+      allow(@request).to receive(:httparty)
+
+      stub_request(:get, http_path)
+        .to_return(
+          status: [301, 'Moved Permanently'],
+          headers: { location: https_path }
+        )
+      stub_request(:get, https_path)
+        .to_return(status: 200)
+      @request.get('/version')
+      expect(a_request(:get, http_path).with(headers: {
+        'PRIVATE_TOKEN' => token
+      }.merge(described_class.headers))).to have_been_made
+      expect(a_request(:get, https_path).with(headers: {
+        'PRIVATE_TOKEN' => token
+      }.merge(described_class.headers))).to have_been_made
+    end
+
+    it 'redirect PUT' do
+      http_endpoint = 'http://example.com/api/v4'
+      https_endpoint = 'https://example.com:443/api/v4'
+      http_path = "#{http_endpoint}/application/settings"
+      https_path = "#{https_endpoint}/application/settings"
+      token = 'token'
+      body = 'signup_enabled=true'
+      @request.private_token = token
+      @request.endpoint = http_endpoint
+
+      allow(@request).to receive(:httparty)
+
+      stub_request(:put, http_path)
+        .with(body: body)
+        .to_return(
+          status: [301, 'Moved Permanently'],
+          headers: { location: https_path }
+        )
+      stub_request(:put, https_path)
+        .with(body: body)
+        .to_return(
+          status: 200,
+          body: '{}'
+        )
+
+      # simulate Gitlab.edit_application_settings(signup_enabled: true)
+      @request.put('/application/settings', body: body)
+
+      expect(
+        a_request(:put, http_path).with(
+          body: body,
+          headers: {
+            'PRIVATE_TOKEN' => token
+          }.merge(described_class.headers)
+        )
+      ).to have_been_made
+      expect(
+        a_request(:put, https_path).with(
+          body: body,
+          headers: {
+            'PRIVATE_TOKEN' => token
+          }.merge(described_class.headers)
+        )
+      ).to have_been_made
+    end
+  end
 end

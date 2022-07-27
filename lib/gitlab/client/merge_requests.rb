@@ -59,6 +59,25 @@ class Gitlab::Client
       get("/projects/#{url_encode project}/merge_requests/#{id}/pipelines")
     end
 
+    # Create a new pipeline for a merge request.
+    # A pipeline created via this endpoint doesnt run a regular branch/tag pipeline.
+    # It requires .gitlab-ci.yml to be configured with only: [merge_requests] to create jobs.
+    #
+    # The new pipeline can be:
+    #
+    # A detached merge request pipeline.
+    # A pipeline for merged results if the project setting is enabled.
+    #
+    # @example
+    #   Gitlab.create_merge_request_pipeline(5, 36)
+    #
+    # @param  [Integer, String] project The ID or name of a project.
+    # @param  [Integer] iid The internal ID of a merge request.
+    # @return [Gitlab::ObjectifiedHash]
+    def create_merge_request_pipeline(project, iid)
+      post("/projects/#{url_encode project}/merge_requests/#{iid}/pipelines")
+    end
+
     # Get a list of merge request participants.
     #
     # @example
@@ -168,7 +187,7 @@ class Gitlab::Client
     # @param [Integer] project The ID of a project
     # @param [Integer] iid The internal ID of a merge request
     def merge_request_closes_issues(project_id, merge_request_iid)
-      get("/projects/#{project_id}/merge_requests/#{merge_request_iid}/closes_issues")
+      get("/projects/#{url_encode project_id}/merge_requests/#{merge_request_iid}/closes_issues")
     end
 
     # Subscribes to a merge request.
@@ -311,6 +330,18 @@ class Gitlab::Client
     # @return [Gitlab::ObjectifiedHash] An empty response.
     def delete_merge_request_discussion_note(project, merge_request_id, discussion_id, note_id)
       delete("/projects/#{url_encode project}/merge_requests/#{merge_request_id}/discussions/#{discussion_id}/notes/#{note_id}")
+    end
+
+    # Delete a merge request
+    #
+    # @example
+    #   Gitlab.delete_merge_request(5, 1)
+    #   Gitlab.delete_merge_request('gitlab', 1)
+    # @param  [Integer, String] project The ID or name of a project.
+    # @param  [Integer] id The ID of a merge request.
+    # @return [Gitlab::ObjectifiedHash] An empty response.
+    def delete_merge_request(project, merge_request_id)
+      delete("/projects/#{url_encode project}/merge_requests/#{merge_request_id}")
     end
 
     # Gets a list of merge request diff versions
