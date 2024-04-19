@@ -170,6 +170,36 @@ RSpec.describe Gitlab::Client do
     end
   end
 
+  describe '.deactivate_user' do
+    before do
+      stub_post('/users/1/deactivate', 'user_deactivate_activate')
+      @result = Gitlab.deactivate_user(1)
+    end
+
+    it 'gets the correct resource' do
+      expect(a_post('/users/1/deactivate')).to have_been_made
+    end
+
+    it 'returns boolean' do
+      expect(@result).to eq(true)
+    end
+  end
+
+  describe '.activate' do
+    before do
+      stub_post('/users/1/activate', 'user_deactivate_activate')
+      @result = Gitlab.activate_user(1)
+    end
+
+    it 'gets the correct resource' do
+      expect(a_post('/users/1/activate')).to have_been_made
+    end
+
+    it 'returns boolean' do
+      expect(@result).to eq(true)
+    end
+  end
+
   describe '.approve_user' do
     before do
       stub_post('/users/1/approve', 'user_approve')
@@ -629,6 +659,20 @@ RSpec.describe Gitlab::Client do
 
     it 'removes a token' do
       expect(a_delete('/users/2/impersonation_tokens/2')).to have_been_made
+      expect(@token.to_hash).to be_empty
+    end
+  end
+
+  describe '.disable_two_factor' do
+    before do
+      stub_request(:patch, "#{Gitlab.endpoint}/users/1/disable_two_factor")
+        .with(headers: { 'PRIVATE-TOKEN' => Gitlab.private_token })
+        .to_return(status: 204)
+      @token = Gitlab.disable_two_factor(1)
+    end
+
+    it 'successfully disabled 2fa' do
+      expect(a_patch('/users/1/disable_two_factor')).to have_been_made
       expect(@token.to_hash).to be_empty
     end
   end

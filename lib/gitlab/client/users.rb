@@ -110,6 +110,28 @@ class Gitlab::Client
       post("/users/#{user_id}/unblock")
     end
 
+    # Deactivates the specified user. Available only for admin.
+    #
+    # @example
+    #   Gitlab.deactivate_user(15)
+    #
+    # @param [Integer] user_id The Id of user
+    # @return [Boolean] success or not
+    def deactivate_user(user_id)
+      post("/users/#{user_id}/deactivate")
+    end
+
+    # Activate the specified user. Available only for admin.
+    #
+    # @example
+    #   Gitlab.activate_user(15)
+    #
+    # @param [Integer] user_id The Id of user
+    # @return [Boolean] success or not
+    def activate_user(user_id)
+      post("/users/#{user_id}/activate")
+    end
+
     # Approves the specified user. Available only for admin.
     #
     # @example
@@ -392,6 +414,17 @@ class Gitlab::Client
     # @return [Gitlab::ObjectifiedHash]
     def revoke_user_impersonation_token(user_id, impersonation_token_id)
       delete("/users/#{user_id}/impersonation_tokens/#{impersonation_token_id}")
+    end
+
+    # Disables two factor authentication (2FA) for the specified user.
+    #
+    # @example
+    #   Gitlab.disable_two_factor(1)
+    #
+    # @param [Integer] id The ID of a user.
+    # @return [Gitlab::ObjectifiedHash]
+    def disable_two_factor(user_id)
+      patch("/users/#{user_id}/disable_two_factor")
     end
   end
 end
